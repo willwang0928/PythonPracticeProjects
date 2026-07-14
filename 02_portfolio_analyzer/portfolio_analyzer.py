@@ -1,63 +1,28 @@
-# Project 2: Multi-Stock Portfolio Analyzer (Plain Python — no pandas/numpy)
-#
-# Goal: extend Project 1 to work across several stocks at once and treat
-# them as a weighted portfolio. Main goal is still Python fluency —
-# nested data structures, looping over multiple data sources, writing
-# your own math instead of reaching for a library. The quant angle
-# (portfolio return, correlation) is just the vehicle.
-#
-# Data: this folder should have one CSV per ticker, e.g.
-#   AAPL.csv, MSFT.csv, GOOG.csv
-# each with the same columns as Project 1: date, open, high, low, close, volume
-# Assume all CSVs cover the exact same dates in the exact same order
-# (no need to handle misaligned dates for this project).
-#
-# What your script should do:
-#
-# 1. Load each CSV into some data structure keyed by ticker, e.g.
-#      { "AAPL": {"dates": [...], "closes": [...]}, "MSFT": {...}, ... }
-#    Write one function that loads a single CSV (reuse it per ticker
-#    rather than copy-pasting the loading logic).
-#
-# 2. Compute the daily returns for each ticker (same formula as Project 1:
-#    (close_today - close_yesterday) / close_yesterday).
-#
-# 3. Given a dict of portfolio weights, e.g.
-#      weights = {"AAPL": 0.5, "MSFT": 0.3, "GOOG": 0.2}
-#    compute the portfolio's daily return for each day as the
-#    weighted sum of that day's individual stock returns:
-#      port_return[day] = sum(weights[t] * returns[t][day] for t in tickers)
-#
-# 4. Compute the portfolio's average daily return and volatility
-#    (std dev of the portfolio daily returns — write this yourself,
-#    no numpy, same as Project 1).
-#
-# 5. Compute the pairwise correlation between each pair of tickers'
-#    daily returns. Write the Pearson correlation formula yourself:
-#      corr(X, Y) = covariance(X, Y) / (stdev(X) * stdev(Y))
-#    where covariance(X, Y) = average of (x_i - mean(X)) * (y_i - mean(Y))
-#
-# 6. Print a summary report with:
-#    - the tickers included and their weights
-#    - the average portfolio daily return
-#    - the portfolio volatility
-#    - a correlation table/matrix between every pair of tickers
-#
-# Notes:
-# - Structure this as functions (e.g. load_ticker, compute_returns,
-#   portfolio_returns, portfolio_volatility, correlation, main) rather
-#   than one long script.
-# - Try to reuse your Project 1 logic conceptually, but it's fine (and
-#   good practice) to rewrite it fresh here rather than importing it.
-# - Think about the data structure for "returns per ticker" before you
-#   start looping — it'll make steps 3 and 5 much easier.
-# - Ping for help if you get stuck on something specific — not for the
-#   full answer, just to talk through the blocker.
+# Multi-Stock Portfolio Analyzer (plain Python -- no pandas/numpy)
+# Loads daily price data for multiple tickers and computes weighted
+# portfolio returns/volatility, plus pairwise correlation between tickers.
 
 import csv
+import math
 
 def main():
-    print(load_all(['AAPL', 'GOOG', 'MSFT']))
+    all_tickers = load_all(['AAPL', 'GOOG', 'MSFT'])
+    weight = {'AAPL': 0.5, 'MSFT': 0.3, 'GOOG': 0.2}
+    print("***********Generating report***********")
+    
+    print(f'Tickers included: {list(weight.keys())}')
+    print(f'Weight of each stock in portfolio: {weight}')
+
+    all_returns = all_daily_returns(all_tickers)
+    port_r = portfolio_return(all_returns, weight)
+    aver_portfolio = sum(port_r) / len(port_r)
+    print(f'The average portfolio daily return is {aver_portfolio}.')
+
+    print(f'The portfolio volatility is {portfolio_vol(port_r)}.')
+
+    print('Correlation matrix:')
+    for t1, t2, c in all_correlation(all_returns):
+        print(f'  {t1}-{t2}: {c}')
 
 def load_ticker(filename):
     l = []
@@ -73,7 +38,63 @@ def load_all(tickers):
         l[ticker] = load_ticker(ticker + '.csv')
     return l
     
+def daily_returns(ticker): # row of dicts for one ticker
+    l = []
+    for i in range(len(ticker)):
+        if i != 0:
+            l.append(((float(ticker[i]['close']) - float(ticker[i-1]['close'])) / float((ticker[i-1]['close']))))
+
+    return l
+
+def all_daily_returns(tickers):
+    l = {}
+    for ticker in tickers:
+        l[ticker] = daily_returns(tickers[ticker])
+        
+    return l
+
+def portfolio_return(r, weight):
+    num_days = len(r['AAPL'])
+    returns = []
+    for i in range(num_days):
+        day_total = 0
+        for t in r:
+            day_total = day_total + r[t][i] * weight[t]
+        returns.append(day_total)
+    return returns
+        
+def portfolio_vol(portfolio):
+    mean = sum(portfolio) / len(portfolio)
     
+    deviation = []
+    for val in portfolio:
+        deviation.append(math.pow(val-mean, 2))
+    
+    variance = sum(deviation) / len(deviation)
+        
+    sd = math.sqrt(variance)
+    
+    return sd
+
+def covariance(x, y):
+    mean_x = sum(x) / len(x)
+    mean_y = sum(y) / len(y)
+    
+    tot = 0
+    for i in range(len(x)):
+        tot = tot + (x[i] - mean_x) * (y[i] - mean_y)
+        
+    return tot / len(x)
+
+def correlation(x,y):
+    return covariance(x, y) / (portfolio_vol(x) * portfolio_vol(y))
+def all_correlation(portfolio):
+    tl = list(portfolio.keys())
+    corr = []
+    for i in range(len(portfolio)):
+        for j in range(i+1, len(portfolio)):
+            corr.append((tl[i], tl[j], correlation(portfolio[tl[i]], portfolio[tl[j]])))
+    return corr
     
 if __name__ == "__main__":
     main()
