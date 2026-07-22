@@ -1,4 +1,4 @@
-# Python Practice Projects — Quant-Flavored Python Fluency Curriculum
+# Python Practice Projects — Small Quant Python Fluency Projects
 
 Five small, self-contained projects, each building on the last, written in
 plain Python — no `pandas`, no `numpy`. The goal was fluency with core Python
